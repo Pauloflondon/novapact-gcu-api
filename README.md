@@ -1,79 +1,38 @@
-﻿# novapact-gcu-api
+﻿# NovaPact GCU API  
+**Governed Classification Unit (GCU)**
 
-**Governance & Control Unit (GCU)**  
-Deterministische Ausführungsschicht für KI-/Agenten-Runs mit Audit-Trail, Policy-Enforcement und Health-Monitoring.
-
----
-
-## Überblick
-
-Minimalistische, kontrollierte API für KI-/Agenten-Runs mit:
-- deterministischer Pipeline
-- Governance & Policy Enforcement
-- vollständigem Audit-Trail
-- reproduzierbarem PowerShell-Workflow
+> A compliance-first, auditable AI classification API designed for regulated environments  
+> (Finance, Insurance, Public Sector, Enterprise AI Governance)
 
 ---
 
-## Quickstart
+## 🚀 Overview
 
-```powershell
-python -m venv .venv
-. .\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-.\gcu.ps1 start
-.\check_gcu_status.ps1
-```
+The **NovaPact GCU API** is a **governance-driven AI classification service** built with
+auditability, determinism, and human oversight at its core.
 
----
+It is designed to operate in **regulated environments** where AI decisions must be:
+- explainable
+- reproducible
+- auditable
+- overrideable by humans
 
-## API
-
-### Health
-GET /health
-
-Antwort:
-```json
-{ "status": "ok" }
-```
-
-### Run
-POST /run
-
-Beispiel:
-```json
-{
-  "capability": "demo",
-  "payload": { "text": "hello world" }
-}
-```
+Typical use cases include:
+- AI pre-screening for financial institutions
+- risk classification pipelines
+- document & content triage
+- compliance decision support systems
 
 ---
 
-## Outputs & Audit
+## 🧠 Core Principles
 
-- Outputs: `gcu_v1/outputs/<RUN_ID>/`
-- Audit (append-only): `gcu_v1/audit/audit.json`
-
----
-
-## Governance
-
-- Confidence Threshold: **0.85**
-- Unter Threshold  Human-in-the-Loop
-- Kill-Switch:
-```powershell
-$env:GCU_KILL=1
-```
+- **Governance First** – Every run is tracked, logged, and auditable
+- **Human-in-the-Loop (HITL)** – Mandatory escalation on low confidence
+- **Deterministic State Machine** – Explicit, reviewable transitions
+- **Audit-Grade Persistence** – SQLite-backed, reproducible state
+- **Explainability Built-in** – No black-box decisions
 
 ---
 
-## Status
-
-**Repo-ready / stabil**
-
----
-
-## Lizenz
-
-Proprietary  All rights reserved
+## 🏗 Architecture
