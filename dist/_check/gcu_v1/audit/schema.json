@@ -1,0 +1,44 @@
+﻿{
+  "run_id": "string",
+  "unit": "string",
+  "version": "string",
+  "timestamp": "iso8601",
+  "input": {
+    "path": "string",
+    "ext": "string",
+    "sha256": "string",
+    "bytes": "number"
+  },
+  "result": {
+    "classification": "string",
+    "confidence": "number",
+    "explainability": ["string"],
+    "metadata": {
+      "tags": ["string"],
+      "flags": ["string"],
+      "review_status": "string"
+    }
+  },
+  "governance": {
+    "policy_ok": "boolean",
+    "hitl": "auto|human",
+    "threshold": "number",
+    "approval": {
+      "required": "boolean",
+      "provided": "boolean",
+      "approval_id": "string|null"
+    },
+    "kill_switch": {
+      "enabled": "boolean",
+      "triggered": "boolean"
+    }
+  },
+  "events": [
+    {
+      "ts": "iso8601",
+      "type": "string",
+      "detail": "string"
+    }
+  ],
+  "status": "ok|blocked|aborted|error"
+}

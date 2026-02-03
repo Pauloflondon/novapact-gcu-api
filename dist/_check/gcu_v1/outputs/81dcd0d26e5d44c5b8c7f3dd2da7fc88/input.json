@@ -1,0 +1,6 @@
+{
+  "capability": "demo",
+  "payload": {
+    "text": "Run while server is up"
+  }
+}

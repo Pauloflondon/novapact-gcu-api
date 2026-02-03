@@ -1,0 +1,25 @@
+{
+    "capability":  "np_document_triage",
+    "agent_id":  "agent_01_doc_triage",
+    "name":  "NovaPact Doc Triage",
+    "version":  "1.0.0-doc_triage",
+    "description":  "Governance-first document triage with HITL + audit. Uses keyword rules for risk signaling.",
+    "inputs":  {
+                   "fields":  [
+                                  "text"
+                              ]
+               },
+    "scoring":  {
+                    "threshold":  0.75,
+                    "strategy":  "keyword-weight-sum"
+                },
+    "resources":  {
+                      "keywords":  "gcu_v1/agents/agent_01_doc_triage/keywords.json"
+                  },
+    "outputs":  {
+                    "audit_dir":  "gcu_v1/outputs/{run_id}/",
+                    "audit_file":  "audit.json"
+                },
+    "unit":  "NP_DOC_TRIAGE_AGENT",
+    "confidence_threshold":  0.75
+}

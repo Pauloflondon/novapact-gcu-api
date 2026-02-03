@@ -1,0 +1,159 @@
+﻿param(
+  [Parameter(Mandatory=$true, Position=0)]
+  [ValidateSet("up","run","down","demo","status")]
+  [string]$cmd,
+
+  [string]$BindHost = "127.0.0.1",
+  [int]$Port = 8000,
+
+  # run/demo params
+  [string]$HostUrl = "",
+  [string]$Capability = "demo",
+  [string]$Text = "hello world",
+  [string]$JsonFile = "",
+  [int]$HealthWaitSeconds = 20,
+  [switch]$NoAutoUp
+)
+
+$ErrorActionPreference = "Stop"
+
+function Say($msg, $color="Gray") { Write-Host $msg -ForegroundColor $color }
+
+function RepoRoot { (Get-Location).Path }
+function UrlBase {
+  if ($HostUrl -and $HostUrl.Trim() -ne "") { return $HostUrl.TrimEnd("/") }
+  return ("http://{0}:{1}" -f $BindHost, $Port)
+}
+
+function Get-PidByPort([int]$p) {
+  try {
+    $c = Get-NetTCPConnection -State Listen -LocalPort $p -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($c) { return $c.OwningProcess }
+  } catch {}
+  return $null
+}
+
+function Ensure-Dirs {
+  $outDev = Join-Path (RepoRoot) "gcu_v1\outputs\_dev"
+  $logs  = Join-Path (RepoRoot) "logs"
+  if (-not (Test-Path $outDev)) { New-Item -ItemType Directory -Force -Path $outDev | Out-Null }
+  if (-not (Test-Path $logs))   { New-Item -ItemType Directory -Force -Path $logs | Out-Null }
+}
+
+function Get-PythonExe {
+  $venvPy = Join-Path (RepoRoot) ".venv\Scripts\python.exe"
+  if (Test-Path $venvPy) { return $venvPy }
+  return "python"
+}
+
+function Start-Server {
+  Ensure-Dirs
+
+  $pid = Get-PidByPort $Port
+  if ($pid) {
+    Say ("Server already listening on port {0} (PID {1})." -f $Port, $pid) "Green"
+    return $pid
+  }
+
+  $py = Get-PythonExe
+  $app = "gcu_v1.api.server:app"
+  $logFile = Join-Path (RepoRoot) "logs\gcu_server.log"
+
+  Say ("Start server: {0}" -f (UrlBase)) "Yellow"
+  Say ("Python: {0}" -f $py) "DarkGray"
+  Say ("Uvicorn app: {0}" -f $app) "DarkGray"
+
+  # Start as background process, redirect logs
+  $args = @("-m","uvicorn",$app,"--host",$BindHost,"--port",$Port)
+  $p = Start-Process -FilePath $py -ArgumentList $args -PassThru -WindowStyle Hidden -RedirectStandardOutput $logFile -RedirectStandardError $logFile
+
+  # Save PID to outputs/_dev
+  $pidPath = Join-Path (RepoRoot) "gcu_v1\outputs\_dev\server.pid"
+  Set-Content -Path $pidPath -Value $p.Id -Encoding UTF8
+
+  # Wait for health
+  $deadline = (Get-Date).AddSeconds($HealthWaitSeconds)
+  while ((Get-Date) -lt $deadline) {
+    try {
+      $r = Invoke-RestMethod -Method GET -Uri ((UrlBase) + "/health") -TimeoutSec 2
+      if ($r.status -eq "ok") {
+        Say "Server healthy." "Green"
+        return $p.Id
+      }
+    } catch { Start-Sleep -Milliseconds 400 }
+  }
+
+  Say "FAIL: server not healthy within wait window. Check logs\gcu_server.log" "Red"
+  throw "Server health check failed"
+}
+
+function Stop-Server {
+  $pid = Get-PidByPort $Port
+  if (-not $pid) {
+    # fallback to pid file
+    $pidPath = Join-Path (RepoRoot) "gcu_v1\outputs\_dev\server.pid"
+    if (Test-Path $pidPath) {
+      try { $pid = [int](Get-Content $pidPath -Raw) } catch {}
+    }
+  }
+
+  if (-not $pid) { Say ("No server on port {0} (nothing to stop)." -f $Port) "Yellow"; return }
+
+  Say ("Stop server PID {0}" -f $pid) "Yellow"
+  try { Stop-Process -Id $pid -Force -ErrorAction Stop } catch { Say ("WARN: stop failed: " + $_.Exception.Message) "Yellow" }
+
+  Start-Sleep -Milliseconds 300
+  $pid2 = Get-PidByPort $Port
+  if ($pid2) { Say ("WARN: port {0} still listening (PID {1})." -f $Port, $pid2) "Yellow" } else { Say "Server stopped." "Green" }
+}
+
+function Post-Run {
+  Ensure-Dirs
+
+  if (-not $NoAutoUp) {
+    $pid = Get-PidByPort $Port
+    if (-not $pid) { Start-Server | Out-Null }
+  }
+
+  $base = UrlBase
+  $uri = $base + "/run"
+  Say ("POST " + $uri) "Yellow"
+
+  if ($JsonFile -and $JsonFile.Trim() -ne "") {
+    if (-not (Test-Path $JsonFile)) { throw "JsonFile not found: $JsonFile" }
+    $body = Get-Content $JsonFile -Raw
+  } else {
+    $body = @{ capability = $Capability; payload = @{ text = $Text } } | ConvertTo-Json -Depth 10
+  }
+
+  $resp = Invoke-RestMethod -Method POST -Uri $uri -ContentType "application/json" -Body $body -TimeoutSec 120
+
+  # Save response to outputs/_dev
+  $outDev = Join-Path (RepoRoot) "gcu_v1\outputs\_dev"
+  $stamp = Get-Date -Format "yyyyMMdd_HHmmss"
+  $save = Join-Path $outDev ("run_{0}.json" -f $stamp)
+  ($resp | ConvertTo-Json -Depth 20) | Set-Content -Path $save -Encoding UTF8
+  Say ("DONE. Saved: " + $save) "Green"
+
+  # Print summary fields if present
+  foreach ($k in @("status","run_id","hitl","audit")) {
+    if ($resp.PSObject.Properties.Name -contains $k) {
+      Write-Host ("{0} : {1}" -f $k, $resp.$k)
+    }
+  }
+}
+
+function Run-Status {
+  if (Test-Path ".\check_gcu_status.ps1") { .\check_gcu_status.ps1 } else { Say "check_gcu_status.ps1 not found." "Yellow" }
+}
+
+Say "NovaPact GCU client loaded." "DarkGray"
+
+switch ($cmd) {
+  "up"     { Start-Server | Out-Null; Say "UP complete (server stays running)." "Cyan" }
+  "run"    { Post-Run; Say "RUN complete (server may be running)." "Cyan" }
+  "down"   { Stop-Server; Say "DOWN complete." "Cyan" }
+  "demo"   { Start-Server | Out-Null; Post-Run; Stop-Server; Say "DEMO complete (uprundown)." "Cyan" }
+  "status" { Run-Status }
+}
+

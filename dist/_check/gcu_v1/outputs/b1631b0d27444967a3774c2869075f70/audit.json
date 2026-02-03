@@ -1,0 +1,61 @@
+{
+  "run_id": "b1631b0d27444967a3774c2869075f70",
+  "unit": "Governed Classification Unit v1",
+  "version": "1.0.0",
+  "timestamp": "2026-01-31T09:56:17.421758+00:00",
+  "input": {
+    "path": "E:\\NOVAPACT_DATABASE\\SEPARATED_AGENTS\\novapact-gcu-api\\gcu_v1\\outputs\\b1631b0d27444967a3774c2869075f70\\input.json",
+    "ext": "json",
+    "sha256": "45d56c38116adac60153f050f5d706aeb5b70336c1fbdbebafd7e54310bd7f4a",
+    "bytes": 115
+  },
+  "result": {
+    "classification": "non-risk",
+    "confidence": 0.5,
+    "explainability": [
+      "no_strong_signals"
+    ],
+    "metadata": {
+      "tags": [
+        "class:non-risk",
+        "queue:standard"
+      ],
+      "flags": [
+        "low_confidence"
+      ],
+      "review_status": "needs_review"
+    }
+  },
+  "governance": {
+    "policy_ok": true,
+    "hitl": "human",
+    "threshold": 0.85,
+    "approval": {
+      "required": true,
+      "provided": false,
+      "approval_id": null
+    },
+    "kill_switch": {
+      "enabled": true,
+      "triggered": false
+    }
+  },
+  "events": [
+    {
+      "ts": "2026-01-31T09:56:17.421548+00:00",
+      "type": "policy_ok",
+      "detail": "Policy validated"
+    },
+    {
+      "ts": "2026-01-31T09:56:17.421739+00:00",
+      "type": "classified",
+      "detail": "classification=non-risk, confidence=0.50"
+    },
+    {
+      "ts": "2026-01-31T09:56:17.421750+00:00",
+      "type": "hitl_human",
+      "detail": "confidence 0.50 < threshold 0.85"
+    }
+  ],
+  "status": "ok"
+}

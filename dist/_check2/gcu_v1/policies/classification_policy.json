@@ -1,0 +1,9 @@
+﻿{
+  "allowed_inputs": ["pdf", "docx", "txt", "md", "json"],
+  "allowed_outputs": ["classification", "confidence", "explainability", "metadata", "audit"],
+  "forbidden": ["content_write", "external_post", "network_calls"],
+  "approval": {
+    "required_for": ["metadata_write"],
+    "type": "explicit"
+  }
+}

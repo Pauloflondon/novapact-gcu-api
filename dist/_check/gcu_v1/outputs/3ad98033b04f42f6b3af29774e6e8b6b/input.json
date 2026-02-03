@@ -1,0 +1,7 @@
+{
+  "capability": "test",
+  "payload": {
+    "risk_indicator": "high",
+    "document_text": "Potentiell riskanter Inhalt"
+  }
+}

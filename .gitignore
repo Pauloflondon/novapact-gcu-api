@@ -1,0 +1,17 @@
+﻿# === Python ===
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+
+# === Runtime outputs / logs ===
+gcu_v1/outputs/
+gcu_v1/outputs/_dev/
+*.log
+
+# === OS / tooling ===
+.DS_Store
+Thumbs.db
+.vscode/

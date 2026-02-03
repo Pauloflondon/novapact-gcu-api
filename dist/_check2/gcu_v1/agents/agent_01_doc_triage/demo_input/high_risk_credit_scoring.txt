@@ -1,0 +1,3 @@
+﻿Automatisierte Entscheidung zur Kreditwürdigkeit (Credit Scoring).
+Verwendung historischer Kundendaten.
+KYC/AML-Prüfungen ohne menschliche Freigabe.

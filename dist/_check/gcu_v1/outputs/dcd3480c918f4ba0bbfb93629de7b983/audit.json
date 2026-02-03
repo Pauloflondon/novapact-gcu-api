@@ -1,0 +1,61 @@
+﻿{
+  "run_id": "dcd3480c918f4ba0bbfb93629de7b983",
+  "unit": "NP_DOC_TRIAGE_AGENT",
+  "version": "1.0.0-doc_triage",
+  "timestamp": "2026-02-02T15:15:30.537183+00:00",
+  "input": {
+    "path": "E:\\novapact-gcu-api (3)\\novapact-gcu-api\\gcu_v1\\outputs\\dcd3480c918f4ba0bbfb93629de7b983\\input.json",
+    "ext": "json",
+    "sha256": "2157afd21cb7819d08a49554bdce4469d26cca8ffa9d6af11c24c01642890ad4",
+    "bytes": 60
+  },
+  "result": {
+    "classification": "non-risk",
+    "confidence": 0.5,
+    "explainability": [
+      "no_strong_signals"
+    ],
+    "metadata": {
+      "tags": [
+        "class:non-risk",
+        "queue:standard"
+      ],
+      "flags": [
+        "low_confidence"
+      ],
+      "review_status": "needs_review"
+    }
+  },
+  "governance": {
+    "policy_ok": true,
+    "hitl": "human",
+    "threshold": 0.75,
+    "approval": {
+      "required": true,
+      "provided": false,
+      "approval_id": null
+    },
+    "kill_switch": {
+      "enabled": true,
+      "triggered": false
+    }
+  },
+  "events": [
+    {
+      "ts": "2026-02-02T15:15:30.536939+00:00",
+      "type": "policy_ok",
+      "detail": "Policy validated"
+    },
+    {
+      "ts": "2026-02-02T15:15:30.537157+00:00",
+      "type": "classified",
+      "detail": "classification=non-risk, confidence=0.50"
+    },
+    {
+      "ts": "2026-02-02T15:15:30.537172+00:00",
+      "type": "hitl_human",
+      "detail": "confidence 0.50 < threshold 0.75"
+    }
+  ],
+  "status": "needs_review"
+}

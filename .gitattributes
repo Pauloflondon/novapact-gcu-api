@@ -1,0 +1,5 @@
+﻿# Normalize line endings and paths
+* text=auto
+*.ps1 text eol=crlf
+*.py  text eol=lf
+*.json text eol=lf

@@ -1,0 +1,7 @@
+{
+  "capability": "test",
+  "payload": {
+    "content": "Dies ist ein Test mit niedriger Confidence",
+    "source": "test_system"
+  }
+}

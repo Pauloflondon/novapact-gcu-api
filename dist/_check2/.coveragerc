@@ -1,0 +1,9 @@
+[run]
+omit =
+    gcu_v1/tests/*
+    gcu_v1/api/server_original.py
+    gcu_v1/tests/selftest.py
+
+[report]
+exclude_lines =
+    if __name__ == .__main__.:

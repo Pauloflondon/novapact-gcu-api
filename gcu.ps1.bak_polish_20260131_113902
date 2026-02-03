@@ -1,0 +1,252 @@
+﻿param(
+  [Parameter(Mandatory=$true, Position=0)]
+  [ValidateSet("repair","up","run","down","demo","status")]
+  [string]$Cmd,
+
+  # Bind / Target
+  [string]$BindHost = "127.0.0.1",
+  [int]$Port = 8000,
+
+  # Optional explicit base url (overrides BindHost/Port)
+  [string]$BaseUrl = "",
+
+  # run/demo params
+  [string]$Capability = "demo",
+  [string]$Text = "hello world",
+  [string]$JsonFile = "",
+  [int]$HealthWaitSeconds = 20,
+
+  # behavior
+  [switch]$NoAutoUp
+)
+
+$ErrorActionPreference = "Stop"
+
+function Say([string]$msg, [string]$color="Gray") { Write-Host $msg -ForegroundColor $color }
+function RepoRoot { (Get-Location).Path }
+
+function Ensure-Dirs {
+  $root = RepoRoot
+  foreach ($p in @(
+    (Join-Path $root "logs"),
+    (Join-Path $root "gcu_v1\outputs\_dev")
+  )) {
+    if (-not (Test-Path $p)) { New-Item -ItemType Directory -Force -Path $p | Out-Null }
+  }
+}
+
+function Resolve-PythonExe {
+  $venvPy = Join-Path (RepoRoot) ".venv\Scripts\python.exe"
+  if (Test-Path $venvPy) { return $venvPy }
+  return "python"
+}
+
+function UrlBase {
+  if ($BaseUrl -and $BaseUrl.Trim() -ne "") { return $BaseUrl.TrimEnd("/") }
+  return ("http://{0}:{1}" -f $BindHost, $Port)
+}
+
+function Get-PidByPort([int]$p) {
+  try {
+    $c = Get-NetTCPConnection -State Listen -LocalPort $p -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($c) { return [int]$c.OwningProcess }
+  } catch {}
+  return $null
+}
+
+function Read-PidFile {
+  $pidPath = Join-Path (RepoRoot) "gcu_v1\outputs\_dev\server.pid"
+  if (Test-Path $pidPath) {
+    try { return [int](Get-Content $pidPath -Raw) } catch {}
+  }
+  return $null
+}
+
+function Write-PidFile([int]$serverPid) {
+  $pidPath = Join-Path (RepoRoot) "gcu_v1\outputs\_dev\server.pid"
+  Set-Content -Path $pidPath -Value $serverPid -Encoding UTF8
+}
+
+function Tail-Log([string]$path, [int]$lines=80) {
+  if (Test-Path $path) {
+    Say ("--- tail " + $path + " ---") "DarkGray"
+    Get-Content $path -Tail $lines
+  }
+}
+
+function Test-Health([int]$timeoutSec=2) {
+  try {
+    $r = Invoke-RestMethod -Method GET -Uri ((UrlBase) + "/health") -TimeoutSec $timeoutSec
+    return ($r.status -eq "ok")
+  } catch { return $false }
+}
+
+function Wait-Health([int]$waitSeconds) {
+  $deadline = (Get-Date).AddSeconds($waitSeconds)
+  while ((Get-Date) -lt $deadline) {
+    if (Test-Health 2) { return $true }
+    Start-Sleep -Milliseconds 400
+  }
+  return $false
+}
+
+function Repair-Env {
+  Ensure-Dirs
+
+  $py = Resolve-PythonExe
+  Say "=== GCU REPAIR ===" "Cyan"
+  Say ("Repo: " + (RepoRoot)) "DarkGray"
+  Say ("Python: " + $py) "DarkGray"
+
+  # Basic checks
+  if (-not (Test-Path (Join-Path (RepoRoot) "gcu_v1\api\server.py"))) {
+    Say "FAIL: gcu_v1\api\server.py missing. Are you in repo root?" "Red"
+    throw "Missing server.py"
+  }
+
+  # Optional dependency sanity: uvicorn import
+  try {
+    & $py -c "import uvicorn" | Out-Null
+    Say "OK: uvicorn import" "Green"
+  } catch {
+    Say "FAIL: uvicorn not available in selected Python. Install requirements in this environment." "Red"
+    throw "uvicorn missing"
+  }
+
+  # Ensure logs files exist
+  $outLog = Join-Path (RepoRoot) "logs\gcu_server.out.log"
+  $errLog = Join-Path (RepoRoot) "logs\gcu_server.err.log"
+  if (-not (Test-Path $outLog)) { New-Item -ItemType File -Force -Path $outLog | Out-Null }
+  if (-not (Test-Path $errLog)) { New-Item -ItemType File -Force -Path $errLog | Out-Null }
+  Say "OK: log files present (out/err)" "Green"
+
+  # Port info
+  $p = Get-PidByPort $Port
+  if ($p) {
+    Say ("INFO: Port {0} already LISTENING (PID {1})." -f $Port, $p) "Yellow"
+  } else {
+    Say ("OK: Port {0} free." -f $Port) "Green"
+  }
+
+  Say "=== REPAIR COMPLETE ===" "Cyan"
+}
+
+function Start-Server {
+  Ensure-Dirs
+
+  $existingPid = Get-PidByPort $Port
+  if ($existingPid) {
+    Say ("Server already listening on port {0} (PID {1})." -f $Port, $existingPid) "Green"
+    Write-PidFile $existingPid
+    return $existingPid
+  }
+
+  $py  = Resolve-PythonExe
+  $app = "gcu_v1.api.server:app"
+  $outLog = Join-Path (RepoRoot) "logs\gcu_server.out.log"
+  $errLog = Join-Path (RepoRoot) "logs\gcu_server.err.log"
+
+  Say ("Start server: {0}" -f (UrlBase)) "Yellow"
+  Say ("Python: {0}" -f $py) "DarkGray"
+  Say ("Uvicorn app: {0}" -f $app) "DarkGray"
+
+  $args = @("-m","uvicorn",$app,"--host",$BindHost,"--port",$Port)
+
+  try {
+    $proc = Start-Process -FilePath $py -ArgumentList $args -PassThru -WindowStyle Hidden `
+      -RedirectStandardOutput $outLog -RedirectStandardError $errLog
+  } catch {
+    Say "FAIL: Start-Process failed." "Red"
+    Tail-Log $errLog 120
+    throw
+  }
+
+  Write-PidFile $proc.Id
+
+  if (-not (Wait-Health $HealthWaitSeconds)) {
+    Say "FAIL: server not healthy within wait window." "Red"
+    Tail-Log $errLog 120
+    Tail-Log $outLog 120
+    throw "Server health check failed"
+  }
+
+  Say "Server healthy." "Green"
+  return $proc.Id
+}
+
+function Stop-Server {
+  $serverPid = Get-PidByPort $Port
+  if (-not $serverPid) { $serverPid = Read-PidFile }
+
+  if (-not $serverPid) {
+    Say ("No server on port {0} (nothing to stop)." -f $Port) "Yellow"
+    return
+  }
+
+  Say ("Stop server PID {0}" -f $serverPid) "Yellow"
+  try { Stop-Process -Id $serverPid -Force -ErrorAction Stop } catch { Say ("WARN: stop failed: " + $_.Exception.Message) "Yellow" }
+
+  Start-Sleep -Milliseconds 300
+  $still = Get-PidByPort $Port
+  if ($still) {
+    Say ("WARN: port {0} still listening (PID {1})." -f $Port, $still) "Yellow"
+  } else {
+    Say "Server stopped." "Green"
+  }
+}
+
+function Post-Run {
+  Ensure-Dirs
+
+  if (-not $NoAutoUp) {
+    $p = Get-PidByPort $Port
+    if (-not $p) { Start-Server | Out-Null }
+  }
+
+  $uri = (UrlBase) + "/run"
+  Say ("POST " + $uri) "Yellow"
+
+  if ($JsonFile -and $JsonFile.Trim() -ne "") {
+    if (-not (Test-Path $JsonFile)) { throw "JsonFile not found: $JsonFile" }
+    $body = Get-Content $JsonFile -Raw
+  } else {
+    $body = @{ capability = $Capability; payload = @{ text = $Text } } | ConvertTo-Json -Depth 10
+  }
+
+  try {
+    $resp = Invoke-RestMethod -Method POST -Uri $uri -ContentType "application/json" -Body $body -TimeoutSec 120
+  } catch {
+    Say ("FAIL: /run request failed: " + $_.Exception.Message) "Red"
+    $errLog = Join-Path (RepoRoot) "logs\gcu_server.err.log"
+    Tail-Log $errLog 120
+    throw
+  }
+
+  $outDev = Join-Path (RepoRoot) "gcu_v1\outputs\_dev"
+  $stamp = Get-Date -Format "yyyyMMdd_HHmmss"
+  $save = Join-Path $outDev ("run_{0}.json" -f $stamp)
+  ($resp | ConvertTo-Json -Depth 20) | Set-Content -Path $save -Encoding UTF8
+  Say ("DONE. Saved: " + $save) "Green"
+
+  foreach ($k in @("status","run_id","hitl","audit")) {
+    if ($resp.PSObject.Properties.Name -contains $k) {
+      Write-Host ("{0} : {1}" -f $k, $resp.$k)
+    }
+  }
+}
+
+function Run-Status {
+  if (Test-Path ".\check_gcu_status.ps1") { .\check_gcu_status.ps1 }
+  else { Say "check_gcu_status.ps1 not found." "Yellow" }
+}
+
+Say "NovaPact GCU client loaded." "DarkGray"
+
+switch ($Cmd) {
+  "repair" { Repair-Env; Say "REPAIR complete." "Cyan" }
+  "up"     { Start-Server | Out-Null; Say "UP complete (server stays running)." "Cyan" }
+  "run"    { Post-Run; Say "RUN complete (server may be running)." "Cyan" }
+  "down"   { Stop-Server; Say "DOWN complete." "Cyan" }
+  "demo"   { Repair-Env; Start-Server | Out-Null; Post-Run; Stop-Server; Say "DEMO complete (repairuprundown)." "Cyan" }
+  "status" { Run-Status }
+}

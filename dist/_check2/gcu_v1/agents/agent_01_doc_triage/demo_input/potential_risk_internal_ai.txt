@@ -1,0 +1,3 @@
+﻿Interne Nutzung eines LLM zur Zusammenfassung von Support-Tickets.
+Es können personenbezogene Daten enthalten sein.
+Cloud-Dienst eines Drittanbieters.

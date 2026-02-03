@@ -1,0 +1,6 @@
+{
+  "capability": "test",
+  "payload": {
+    "test": "low_confidence_data"
+  }
+}

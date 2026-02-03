@@ -1,0 +1,9 @@
+{
+  "capability": "np_document_triage",
+  "payload": {
+    "document": {
+      "id": "doc-001",
+      "text": "confidential legal dispute"
+    }
+  }
+}

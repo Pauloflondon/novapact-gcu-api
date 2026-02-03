@@ -1,0 +1,353 @@
+﻿from __future__ import annotations
+
+import argparse
+import base64
+import json
+from pathlib import Path
+from typing import Any, Dict, Optional
+
+from gcu_v1.pipeline._utils import load_json, utc_now_iso, new_run_id
+from gcu_v1.pipeline.intake import intake
+from gcu_v1.pipeline.governance import decide_governance
+from gcu_v1.pipeline.classify import classify
+from gcu_v1.pipeline.threshold import apply_threshold
+from gcu_v1.pipeline.metadata_write import metadata_write
+from gcu_v1.pipeline.finalize_audit import finalize_audit
+
+
+DEFAULT_MANIFEST = "gcu_v1/manifests/gcu_v1.json"
+DEFAULT_POLICY = "gcu_v1/policies/classification_policy.json"
+DEFAULT_OUTPUTS = "gcu_v1/outputs"
+
+
+def derive_metadata(result: Dict[str, Any]) -> Dict[str, Any]:
+    cls = result["classification"]
+    conf = float(result["confidence"])
+
+    tags = [f"class:{cls}"]
+    flags = []
+
+    review_status = "auto_accepted" if conf >= 0.85 else "needs_review"
+
+    if cls == "risk":
+        flags.append("risk_flag")
+        tags.append("queue:compliance_review")
+    else:
+        tags.append("queue:standard")
+
+    if conf < 0.85:
+        flags.append("low_confidence")
+
+    return {"tags": tags, "flags": flags, "review_status": review_status}
+
+
+def build_audit(
+    manifest: Dict[str, Any],
+    ctx: Dict[str, Any],
+    result: Optional[Dict[str, Any]],
+    gd: Any,
+    status: str,
+) -> Dict[str, Any]:
+    base = {
+        "run_id": ctx["run_id"],
+        "unit": manifest.get("unit", "GCU"),
+        "version": manifest.get("version", "0.0.0"),
+        "timestamp": utc_now_iso(),
+        "input": ctx.get("input"),
+        "result": {
+            "classification": None,
+            "confidence": None,
+            "explainability": [],
+            "metadata": {"tags": [], "flags": [], "review_status": "n/a"},
+        },
+        "governance": {
+            "policy_ok": bool(getattr(gd, "policy_ok", False)),
+            "hitl": getattr(gd, "hitl", "human"),
+            "threshold": float(getattr(gd, "threshold", 0.85)),
+            "approval": {
+                "required": bool(getattr(gd, "approval_required", True)),
+                "provided": bool(getattr(gd, "approval_provided", False)),
+                "approval_id": getattr(gd, "approval_id", None),
+            },
+            "kill_switch": {
+                "enabled": bool(getattr(gd, "kill_enabled", True)),
+                "triggered": bool(getattr(gd, "kill_triggered", False)),
+            },
+        },
+        "events": ctx.get("events", []),
+        "status": status,
+    }
+
+    if result:
+        md = derive_metadata(result)
+        base["result"] = {
+            "classification": result["classification"],
+            "confidence": float(result["confidence"]),
+            "explainability": list(result.get("explainability", [])),
+            "metadata": md,
+        }
+
+    return base
+
+
+def _execute(
+    *,
+    input_path: Path,
+    manifest_path: Path,
+    policy_path: Path,
+    outputs_dir: Path,
+    write_metadata_flag: bool,
+    approval_id: Optional[str],
+    run_id: str,
+) -> Dict[str, Any]:
+    manifest = load_json(manifest_path)
+    policy = load_json(policy_path)
+
+    ctx: Dict[str, Any] = {"run_id": run_id, "events": []}
+
+    try:
+        # Intake
+        ctx.update(intake(input_path))
+
+        
+        # Determine capability/payload (robust)
+        try:
+            doc = json.loads(input_path.read_text(encoding="utf-8"))
+            doc_capability = doc.get("capability")
+            doc_payload = doc.get("payload", {})
+        except Exception:
+            doc_capability = None
+            doc_payload = {}# Governance decide
+        gd = decide_governance(manifest, policy, ctx)
+        if gd.kill_triggered:
+            audit = build_audit(manifest, ctx, result=None, gd=gd, status="aborted")
+            audit_path = finalize_audit(outputs_dir, audit, ctx)
+            return {
+    "status": "aborted", 
+    "run_id": run_id, 
+    "hitl": "human", 
+    "audit": str(audit_path),
+    "approval_provided": False
+}
+
+        if not gd.policy_ok:
+            audit = build_audit(manifest, ctx, result=None, gd=gd, status="blocked")
+            audit_path = finalize_audit(outputs_dir, audit, ctx)
+            return {
+    "status": "blocked", 
+    "run_id": run_id, 
+    "hitl": "human", 
+    "audit": str(audit_path), 
+    "reason": gd.blocked_reason,
+    "approval_provided": False
+}
+
+                # Classification (capability-aware)
+        if doc_capability == "doc_triage":
+            # Lazy imports to avoid import-time side effects
+            from gcu_v1.agents.loader import load_agent_bundle
+            from gcu_v1.pipeline.doc_triage import run_doc_triage
+
+            bundle = load_agent_bundle("doc_triage")
+
+            text = ""
+            if isinstance(doc_payload, dict):
+                text = doc_payload.get("text") or doc_payload.get("content") or ""
+            else:
+                text = str(doc_payload)
+
+            result = run_doc_triage(text=text, bundle=bundle)
+        else:
+            result = classify(input_path, ctx)
+# Threshold HITL
+        hitl = apply_threshold(ctx, float(result["confidence"]), float(manifest.get("confidence_threshold", 0.85)))
+        gd.hitl = hitl
+
+        
+        # Derive pipeline status (IMPORTANT)
+        computed_status = "ok"
+        if hitl == "human":
+            computed_status = "needs_review"
+        if isinstance(result, dict) and result.get("status") in {"needs_review", "blocked", "aborted", "error"}:
+            computed_status = str(result["status"])# Metadata assembly (always produced as data, write is optional)
+        metadata = derive_metadata(result)
+
+        approval_required = bool(
+            policy.get("approval", {}).get("required_for", [])
+            and "metadata_write" in policy["approval"]["required_for"]
+        )
+        approval_provided = bool(approval_id)
+
+        # If user requested write, enforce approval
+        if write_metadata_flag:
+            if approval_required and not approval_provided:
+                ctx["events"].append(
+                    {
+                        "ts": utc_now_iso(),
+                        "type": "approval_missing",
+                        "detail": "metadata_write requested but approval_id missing",
+                    }
+                )
+            else:
+                metadata_write(outputs_dir, ctx, metadata, approval_id)
+
+        # Build audit
+        gd.approval_required = approval_required
+        gd.approval_provided = approval_provided
+        gd.approval_id = approval_id
+
+        audit = build_audit(manifest, ctx, result=result, gd=gd, status=computed_status)
+        audit_path = finalize_audit(outputs_dir, audit, ctx)
+
+        # Cleanup: remove stray temp executables (Windows artefacts)
+        try:
+            tmp_exe = outputs_dir / "tmp.exe"
+            if tmp_exe.exists():
+                tmp_exe.unlink()
+        except Exception:
+            pass
+
+        return {
+
+    "status": computed_status, 
+    "run_id": run_id, 
+    "hitl": hitl, 
+    "audit": str(audit_path),
+    "approval_provided": gd.approval_provided
+}
+
+    except Exception as e:
+        ctx.setdefault("events", [])
+        ctx.setdefault(
+            "input",
+            {"path": str(input_path), "ext": None, "sha256": None, "bytes": None},
+        )
+        ctx["events"].append({"ts": utc_now_iso(), "type": "runtime_error", "detail": repr(e)})
+
+        class _GD:
+            policy_ok = True
+            blocked_reason = None
+            hitl = "human"
+            threshold = float(manifest.get("confidence_threshold", 0.85)) if "manifest" in locals() else 0.85
+            approval_required = False
+            approval_provided = False
+            approval_id = None
+            kill_enabled = True
+            kill_triggered = False
+
+        gd = _GD()
+        # manifest may not be loaded if failure happened early:
+        mf = manifest if "manifest" in locals() else {"unit": "GCU", "version": "0.0.0"}
+        audit = build_audit(mf, ctx, result=None, gd=gd, status="error")
+        audit_path = finalize_audit(outputs_dir, audit, ctx)
+        return {
+    "status": "error", 
+    "run_id": run_id, 
+    "hitl": "human", 
+    "audit": str(audit_path), 
+    "error": str(e),
+    "approval_provided": False
+}
+
+
+def run_capability(
+    capability: str,
+    payload: Dict[str, Any],
+    *,
+    manifest: str = DEFAULT_MANIFEST,
+    policy: str = DEFAULT_POLICY,
+    outputs: str = DEFAULT_OUTPUTS,
+    write_metadata_flag: bool = False,
+    approval_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    FastAPI entry point.
+    Writes a legacy-compatible input.json under outputs/<run_id>/ and runs the pipeline.
+    """
+    run_id = new_run_id()
+    outputs_dir = Path(outputs).resolve()
+    run_dir = outputs_dir / run_id
+    run_dir.mkdir(parents=True, exist_ok=True)
+
+    input_path = (run_dir / "input.json").resolve()
+    doc = {"capability": capability, "payload": payload}
+    input_path.write_text(json.dumps(doc, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    return _execute(
+        input_path=input_path,
+        manifest_path=Path(manifest).resolve(),
+        policy_path=Path(policy).resolve(),
+        outputs_dir=outputs_dir,
+        write_metadata_flag=write_metadata_flag,
+        approval_id=approval_id,
+        run_id=run_id,
+    )
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--input", required=False, help="Path to input document (legacy mode)")
+
+    ap.add_argument("--capability", default=None, help="Capability name (e.g. pal1)")
+    ap.add_argument("--payload-json", default=None, help="Inline JSON payload (string)")
+    ap.add_argument("--payload-json-b64", default=None, help="Inline JSON payload as base64 (utf-8)")
+
+    ap.add_argument("--manifest", default=DEFAULT_MANIFEST)
+    ap.add_argument("--policy", default=DEFAULT_POLICY)
+    ap.add_argument("--outputs", default=DEFAULT_OUTPUTS)
+    ap.add_argument("--write-metadata", action="store_true")
+    ap.add_argument("--approval-id", default=None)
+
+    args = ap.parse_args()
+
+    outputs_dir = Path(args.outputs).resolve()
+    run_id = new_run_id()
+
+    # Legacy mode
+    if args.input:
+        input_path = Path(args.input).resolve()
+        if not input_path.exists():
+            raise SystemExit(f"Input not found: {input_path}")
+
+        res = _execute(
+            input_path=input_path,
+            manifest_path=Path(args.manifest).resolve(),
+            policy_path=Path(args.policy).resolve(),
+            outputs_dir=outputs_dir,
+            write_metadata_flag=bool(args.write_metadata),
+            approval_id=args.approval_id,
+            run_id=run_id,
+        )
+        print(json.dumps(res, indent=2, ensure_ascii=False))
+        return 0 if res.get("status") == "ok" else 1
+
+    # New mode
+    if not args.capability or (not args.payload_json and not args.payload_json_b64):
+        raise SystemExit(
+            "Usage:\n"
+            "  Legacy: python -m gcu_v1.api.run --input <file.json>\n"
+            "  New:    python -m gcu_v1.api.run --capability <name> --payload-json '<json>'\n"
+            "  New:    python -m gcu_v1.api.run --capability <name> --payload-json-b64 <base64>\n"
+        )
+
+    raw = args.payload_json
+    if args.payload_json_b64:
+        raw = base64.b64decode(args.payload_json_b64).decode("utf-8")
+
+    payload_obj = json.loads(raw)
+
+    res = run_capability(
+        args.capability,
+        payload_obj,
+        manifest=args.manifest,
+        policy=args.policy,
+        outputs=str(outputs_dir),
+        write_metadata_flag=bool(args.write_metadata),
+        approval_id=args.approval_id,
+    )
+    print(json.dumps(res, indent=2, ensure_ascii=False))
+    return 0 if res.get("status") == "ok" else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

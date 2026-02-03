@@ -1,0 +1,6 @@
+{
+  "capability": "np_document_triage",
+  "payload": {
+    "text": "hello triage metrics"
+  }
+}

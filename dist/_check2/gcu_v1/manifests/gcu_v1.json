@@ -1,0 +1,20 @@
+﻿{
+    "unit":  "Governed Classification Unit v1",
+    "mode":  "read_only",
+    "write_scope":  [
+                        "metadata_tags",
+                        "classification_flags",
+                        "review_status"
+                    ],
+    "content_modification":  false,
+    "human_in_the_loop":  "threshold_based",
+    "confidence_threshold":  0.85,
+    "forced_human_review":  [
+                                "confidence_below_threshold",
+                                "policy_violation",
+                                "exception"
+                            ],
+    "audit":  "full",
+    "kill_switch":  true,
+    "version":  "1.0.0"
+}

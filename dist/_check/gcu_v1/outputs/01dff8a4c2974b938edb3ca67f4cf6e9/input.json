@@ -1,0 +1,7 @@
+{
+  "capability": "test",
+  "payload": {
+    "test": "debug_test_data",
+    "source": "debug_script"
+  }
+}

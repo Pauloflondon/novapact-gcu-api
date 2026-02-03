@@ -1,0 +1,6 @@
+{
+  "capability": "test",
+  "payload": {
+    "text": "This is a simple test document without any special content."
+  }
+}

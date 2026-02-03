@@ -1,0 +1,94 @@
+﻿# gcu.ps1  (robust: works even when started from terminal)
+[CmdletBinding()]
+param(
+  [string]$Capability = "pal1",
+  [string]$Goal = "test",
+  [string[]]$Constraints = @("fast"),
+  [string]$HostAddr = "127.0.0.1",
+  [int]$Port = 8000,
+  [switch]$KeepAlive,
+  [switch]$NoKill
+)
+
+$ErrorActionPreference = "Stop"
+
+$Root = if ($PSCommandPath) { Split-Path -Parent $PSCommandPath } else { (Get-Location).Path }
+Set-Location $Root
+
+$BaseUrl  = "http://$HostAddr`:$Port"
+$HealthUrl = "$BaseUrl/health"
+$RunUrl    = "$BaseUrl/run"
+
+$OutDir = Join-Path $Root "gcu_v1\outputs\_dev"
+New-Item -ItemType Directory -Force -Path $OutDir | Out-Null
+
+function Get-ListeningPid([int]$p) {
+  $line = netstat -ano | Select-String -Pattern "TCP\s+$HostAddr`:$p\s+.*\s+ABH" | Select-Object -First 1
+  if (-not $line) { return $null }
+  ($line.Line -split "\s+")[-1]
+}
+
+function Kill-If-Listening([int]$p) {
+  if ($NoKill) { return }
+  $listenPid = Get-ListeningPid $p
+  if ($listenPid -and $listenPid -ne "0") {
+    Write-Host " Port $p belegt. Kille PID $listenPid ..." -ForegroundColor Yellow
+    taskkill /PID $listenPid /F | Out-Null
+    Start-Sleep -Milliseconds 600
+  }
+}
+
+function Wait-For-Health([string]$url, [int]$timeoutSec = 20) {
+  $sw = [Diagnostics.Stopwatch]::StartNew()
+  while ($sw.Elapsed.TotalSeconds -lt $timeoutSec) {
+    try {
+      $r = Invoke-RestMethod -Method Get -Uri $url -TimeoutSec 2
+      if ($r.status -eq "ok") { return $true }
+    } catch {}
+    Start-Sleep -Milliseconds 250
+  }
+  return $false
+}
+
+Kill-If-Listening $Port
+
+Write-Host " Start server: $BaseUrl" -ForegroundColor Cyan
+$server = Start-Process -PassThru -NoNewWindow `
+  -FilePath "python" `
+  -ArgumentList @("-m","uvicorn","gcu_v1.api.server:app","--host",$HostAddr,"--port",$Port,"--log-level","info") `
+  -RedirectStandardOutput (Join-Path $OutDir "server_stdout.log") `
+  -RedirectStandardError  (Join-Path $OutDir "server_stderr.log")
+
+if (-not (Wait-For-Health $HealthUrl 20)) {
+  Write-Host " /health not reachable. Check logs: $OutDir" -ForegroundColor Red
+  if ($server -and -not $server.HasExited) { Stop-Process -Id $server.Id -Force }
+  exit 1
+}
+Write-Host " Server healthy." -ForegroundColor Green
+
+$bodyObj = @{
+  capability = $Capability
+  payload = @{
+    goal = $Goal
+    constraints = $Constraints
+  }
+}
+$bodyJson = $bodyObj | ConvertTo-Json -Depth 20
+
+Write-Host " POST $RunUrl" -ForegroundColor Cyan
+$response = Invoke-RestMethod -Method Post -Uri $RunUrl -ContentType "application/json" -Body $bodyJson
+
+$ts = (Get-Date).ToString("yyyyMMdd_HHmmss")
+$outFile = Join-Path $OutDir "run_$ts.json"
+($response | ConvertTo-Json -Depth 50) | Set-Content -Encoding UTF8 $outFile
+
+Write-Host " DONE. Saved: $outFile" -ForegroundColor Green
+$response | Format-List
+
+if (-not $KeepAlive) {
+  Write-Host " Stop server PID $($server.Id)" -ForegroundColor DarkGray
+  if ($server -and -not $server.HasExited) { Stop-Process -Id $server.Id -Force }
+  Write-Host " Finished." -ForegroundColor Green
+} else {
+  Write-Host " KeepAlive enabled: server stays running (PID $($server.Id))." -ForegroundColor Yellow
+}

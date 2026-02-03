@@ -1,0 +1,41 @@
+{
+  "version": "1.0.0",
+  "language": "de+en",
+  "description": "Doc-Triage keyword ruleset for risk signaling (baseline).",
+  "rules": [
+    { "pattern": "iban", "category": "pii", "weight": 0.25 },
+    { "pattern": "kontonummer", "category": "pii", "weight": 0.25 },
+    { "pattern": "ausweis", "category": "pii", "weight": 0.20 },
+    { "pattern": "passport", "category": "pii", "weight": 0.20 },
+    { "pattern": "social security", "category": "pii", "weight": 0.25 },
+
+    { "pattern": "phishing", "category": "phishing", "weight": 0.60 },
+    { "pattern": "login", "category": "phishing", "weight": 0.25 },
+    { "pattern": "passwort", "category": "phishing", "weight": 0.35 },
+    { "pattern": "2fa", "category": "phishing", "weight": 0.25 },
+    { "pattern": "konto gesperrt", "category": "phishing", "weight": 0.45 },
+
+    { "pattern": "betrug", "category": "fraud", "weight": 0.55 },
+    { "pattern": "chargeback", "category": "fraud", "weight": 0.35 },
+    { "pattern": "scam", "category": "fraud", "weight": 0.55 },
+    { "pattern": "fake", "category": "fraud", "weight": 0.25 },
+
+    { "pattern": "geldwäsche", "category": "aml", "weight": 0.70 },
+    { "pattern": "money laundering", "category": "aml", "weight": 0.70 },
+    { "pattern": "sanktion", "category": "aml", "weight": 0.55 },
+    { "pattern": "sanction", "category": "aml", "weight": 0.55 },
+    { "pattern": "terrorismusfinanzierung", "category": "aml", "weight": 0.75 },
+
+    { "pattern": "gdpr", "category": "legal", "weight": 0.35 },
+    { "pattern": "dsgvo", "category": "legal", "weight": 0.35 },
+    { "pattern": "bafin", "category": "legal", "weight": 0.35 },
+
+    { "pattern": "exploit", "category": "security", "weight": 0.60 },
+    { "pattern": "malware", "category": "security", "weight": 0.60 },
+    { "pattern": "ransomware", "category": "security", "weight": 0.75 }
+  ],
+  "normalization": {
+    "lowercase": true,
+    "strip_punctuation": true
+  }
+}

@@ -1,0 +1,157 @@
+﻿from __future__ import annotations
+
+import os
+import logging
+from typing import Any, Dict, Optional
+
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+
+from gcu_v1.status_machine import (
+    NovaPactStatusManager,
+    ClassificationResult,
+    SystemStatus,
+    StatusTransitionError,
+    AdminOverrideError
+)
+
+# ==================== APP ====================
+
+app = FastAPI(title="NovaPact GCU API", version="1.0.0")
+status_manager = NovaPactStatusManager()
+
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger("novapact.server")
+
+# ==================== PRODUCT CONTRACT ====================
+
+CAPABILITY = "np_document_triage"
+THRESHOLD = 0.75  # FROZEN – product contract v1.0
+
+# ==================== REQUEST MODELS ====================
+
+class RunRequest(BaseModel):
+    capability: str
+    payload: Dict[str, Any]
+    actor: str = "system"
+    role: str = "auto"
+    auth_type: str = "api_key"
+
+
+class ReviewRequest(BaseModel):
+    action: str
+    actor: str
+    role: str
+    auth_type: str
+    reason: Optional[str] = None
+
+
+class AdminOverrideRequest(BaseModel):
+    target_status: str
+    actor: str
+    role: str
+    auth_type: str
+    reason: str
+
+
+# ==================== ENDPOINTS ====================
+
+@app.get("/health")
+def health() -> Dict[str, str]:
+    return {"status": "ok"}
+
+
+@app.post("/run")
+def run(req: RunRequest) -> Dict[str, Any]:
+    if req.capability != CAPABILITY:
+        raise HTTPException(400, f"Invalid capability. Expected '{CAPABILITY}'.")
+
+    try:
+        from gcu_v1.api.run import run_capability
+    except ImportError:
+        raise HTTPException(500, "run_capability not found")
+
+    try:
+        # 1) Execute pipeline
+        pipeline_result = run_capability(
+            capability=req.capability,
+            payload=req.payload
+        )
+
+        pipeline_status = pipeline_result.get("status", "error")
+        if pipeline_status not in ["ok", "needs_review"]:
+            return pipeline_result
+
+        # 2) GOVERNANCE – SINGLE SOURCE OF TRUTH
+        confidence = float(pipeline_result.get("confidence", 0.0))
+        hitl_required = confidence < THRESHOLD
+
+        classification_result = ClassificationResult(
+            confidence=confidence,
+            hitl_required=hitl_required,
+            approval=False,              # never auto-approved
+            admin_override=False,
+            error_occurred=False
+        )
+
+        run_id = pipeline_result.get("run_id", "unknown")
+
+        status = status_manager.process_classification(
+            request_id=run_id,
+            classification_result=classification_result,
+            actor=req.actor,
+            role=req.role,
+            auth_type=req.auth_type
+        )
+
+        pipeline_result["status"] = str(status)
+        pipeline_result["needs_review"] = (status == SystemStatus.NEEDS_REVIEW)
+
+        return pipeline_result
+
+    except Exception as e:
+        logger.error("RUN ERROR", exc_info=True)
+        raise HTTPException(500, str(e))
+
+
+@app.post("/review/{run_id}")
+def review(run_id: str, review_req: ReviewRequest) -> Dict[str, Any]:
+    try:
+        new_status = status_manager.manual_review_action(
+            request_id=run_id,
+            action=review_req.action,
+            actor=review_req.actor,
+            role=review_req.role,
+            auth_type=review_req.auth_type,
+            reason=review_req.reason
+        )
+        return {"run_id": run_id, "status": str(new_status)}
+    except Exception as e:
+        raise HTTPException(400, str(e))
+
+
+@app.post("/admin/override/{run_id}")
+def admin_override(run_id: str, override_req: AdminOverrideRequest) -> Dict[str, Any]:
+    try:
+        target_status = SystemStatus(override_req.target_status)
+        new_status = status_manager.admin_override(
+            request_id=run_id,
+            target_status=target_status,
+            actor=override_req.actor,
+            role=override_req.role,
+            auth_type=override_req.auth_type,
+            reason=override_req.reason
+        )
+        return {"run_id": run_id, "status": str(new_status), "admin_override": True}
+    except Exception as e:
+        raise HTTPException(403, str(e))
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(
+        "gcu_v1.api.server:app",
+        host=os.environ.get("GCU_HOST", "127.0.0.1"),
+        port=int(os.environ.get("GCU_PORT", "8000")),
+        log_level="debug"
+    )

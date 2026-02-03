@@ -1,0 +1,49 @@
+﻿{
+  "run_id": "9514a1805b1c4e0bbf06860baff9695f",
+  "unit": "Governed Classification Unit v1",
+  "version": "1.0.0",
+  "timestamp": "2026-02-01T17:59:38.636551+00:00",
+  "input": {
+    "path": "E:\\novapact-gcu-api (3)\\novapact-gcu-api\\gcu_v1\\outputs\\9514a1805b1c4e0bbf06860baff9695f\\input.json",
+    "ext": "json",
+    "sha256": "64925d9d3653a81bfb63f5eb644cf1e5cc9dc9d6347215e606272b33a89a957a",
+    "bytes": 229
+  },
+  "result": {
+    "classification": null,
+    "confidence": null,
+    "explainability": [],
+    "metadata": {
+      "tags": [],
+      "flags": [],
+      "review_status": "n/a"
+    }
+  },
+  "governance": {
+    "policy_ok": true,
+    "hitl": "human",
+    "threshold": 0.85,
+    "approval": {
+      "required": false,
+      "provided": false,
+      "approval_id": null
+    },
+    "kill_switch": {
+      "enabled": true,
+      "triggered": false
+    }
+  },
+  "events": [
+    {
+      "ts": "2026-02-01T17:59:38.623372+00:00",
+      "type": "policy_ok",
+      "detail": "Policy validated"
+    },
+    {
+      "ts": "2026-02-01T17:59:38.636498+00:00",
+      "type": "runtime_error",
+      "detail": "JSONDecodeError('Unexpected UTF-8 BOM (decode using utf-8-sig): line 1 column 1 (char 0)')"
+    }
+  ],
+  "status": "error"
+}

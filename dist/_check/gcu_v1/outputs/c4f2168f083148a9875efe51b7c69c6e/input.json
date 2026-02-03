@@ -1,0 +1,6 @@
+{
+  "capability": "np_document_triage",
+  "payload": {
+    "text": "iban DE12 3456 7890 1234 5678 90 passwort konto gesperrt"
+  }
+}

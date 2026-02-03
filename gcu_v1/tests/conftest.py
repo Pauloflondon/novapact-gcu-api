@@ -1,0 +1,76 @@
+﻿import pytest
+import tempfile
+from pathlib import Path
+from httpx import AsyncClient
+
+from gcu_v1.api.server import app
+from gcu_v1.persistence import status_store
+
+
+
+@pytest.fixture
+def temp_db(monkeypatch, tmp_path):
+    """
+    Kompatibilitäts-Fixture für test_persistence.py.
+    Liefert Path zur DB-Datei und initialisiert Schema.
+    """
+    db_dir = tmp_path / "state"
+    db_dir.mkdir(parents=True, exist_ok=True)
+    db_file = db_dir / "test_gcu.db"
+
+    monkeypatch.setattr("gcu_v1.persistence.status_store.DB_PATH", db_file)
+    status_store.init_db()
+    return db_file
+@pytest.fixture(autouse=True)
+def _bootstrap_test_env(monkeypatch):
+    """
+    AUTOUSE: Läuft vor JEDEM Test.
+    - DB + Tabellen init (isoliert)
+    - verhindert rmtree() auf einer DB-Datei (WinError 267)
+    - isoliert Outputs/Audit
+    """
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmpdir:
+        root = Path(tmpdir)
+
+        # --- DB: separater Ordner + Datei darin ---
+        db_dir = root / "state"
+        db_dir.mkdir(parents=True, exist_ok=True)
+        db_file = db_dir / "test_gcu.db"
+
+        # Manche Teile behandeln DB_PATH als DIRECTORY -> daher setzen wir beides:
+        monkeypatch.setenv("NP_DB_DIR", str(db_dir))
+        monkeypatch.setenv("NP_STATE_DIR", str(db_dir))
+        monkeypatch.setenv("DB_DIR", str(db_dir))
+
+        # Unser Persistence-Layer arbeitet (nach bisherigen Tests) mit status_store.DB_PATH.
+        # Wir setzen ihn explizit auf die Datei.
+        monkeypatch.setattr("gcu_v1.persistence.status_store.DB_PATH", db_file)
+
+        # Tabellen anlegen
+        status_store.init_db()
+
+        # --- Outputs/Audit roots ---
+        out_root = root / "outputs"
+        audit_root = root / "audit"
+        out_root.mkdir(parents=True, exist_ok=True)
+        audit_root.mkdir(parents=True, exist_ok=True)
+
+        monkeypatch.setenv("NP_OUTPUTS_DIR", str(out_root))
+        monkeypatch.setenv("NP_OUTPUT_DIR", str(out_root))
+        monkeypatch.setenv("OUTPUTS_DIR", str(out_root))
+        monkeypatch.setenv("OUTPUT_DIR", str(out_root))
+
+        monkeypatch.setenv("NP_AUDIT_DIR", str(audit_root))
+        monkeypatch.setenv("AUDIT_DIR", str(audit_root))
+        monkeypatch.setenv("NP_AUDIT_PATH", str(audit_root))
+        monkeypatch.setenv("NP_LOG_DIR", str(root / "logs"))
+
+        yield
+
+
+@pytest.fixture
+async def client():
+    async with AsyncClient(app=app, base_url="http://test") as ac:
+        yield ac
+
+
