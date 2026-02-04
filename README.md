@@ -37,6 +37,26 @@ Typical use cases include:
 
 ## 🏗 Architecture
 
+## 💼 Commercial Licensing
+
+The NovaPact GCU API is available for **commercial licensing**. This is a proprietary software product designed for businesses seeking a compliance-first AI governance solution.
+
+### License Tiers
+
+| Tier | Price (One-time) | Target Audience |
+| :--- | :--- | :--- |
+| **Developer** | €499 | Individual developers, small teams, startups |
+| **Business** | €1,499 | Small and medium-sized enterprises (SMEs) |
+| **Enterprise** | Contact us | Large enterprises, regulated industries |
+
+**License Model:** Perpetual, "as-is" license without ongoing support obligations. Optional support contracts available for Enterprise customers.
+
+**Distribution:** Available via [Gumroad](https://gumroad.com) and direct purchase.
+
+For licensing inquiries, please contact: [Your Contact Email]
+
+---
+
 ## 📊 Business & Market Analysis
 
 Beyond its technical capabilities, the NovaPact GCU API is supported by a comprehensive suite of business, market, and competitive analyses that underscore its strategic value and commercial readiness.

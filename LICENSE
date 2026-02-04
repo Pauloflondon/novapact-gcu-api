@@ -1,0 +1,51 @@
+NovaPact Governed Classification Unit (GCU) API
+Commercial License Agreement (EULA)
+========================================
+
+This Software License Agreement (the "Agreement") is entered into by and between NovaPact, a German Civil Law Partnership (GbR), located at [Your Address] ("Licensor"), and the entity or individual agreeing to these terms ("Licensee").
+
+This Agreement governs the use of the NovaPact Governed Classification Unit (GCU) API software (the "Software"). By installing, copying, or otherwise using the Software, Licensee agrees to be bound by the terms of this Agreement.
+
+**1. License Grant**
+
+1.1. Subject to the terms and conditions of this Agreement and payment of the applicable license fees, Licensor grants Licensee a perpetual, non-exclusive, non-transferable, non-sublicensable license to use the Software in object code form solely for Licensee's internal business purposes.
+
+**2. Restrictions**
+
+2.1. Licensee shall not, directly or indirectly: (a) sublicense, distribute, sell, rent, lease, or otherwise make the Software available to any third party; (b) modify, reverse engineer, decompile, disassemble, or create derivative works based on the Software; (c) remove any proprietary notices or labels on the Software; (d) use the Software for any illegal purpose or in violation of any applicable laws.
+
+**3. Intellectual Property**
+
+3.1. The Software is licensed, not sold. Licensor and its suppliers retain all right, title, and interest in and to the Software and all related intellectual property rights. No rights are granted to Licensee other than as expressly set forth herein.
+
+**4. Data Privacy**
+
+4.1. Both parties shall comply with all applicable data protection and privacy laws, including the General Data Protection Regulation (GDPR).
+
+4.2. The Software is designed to be self-hosted by the Licensee. Licensor does not have access to any data processed by the Software in Licensee's environment. Licensee is solely responsible for the security and privacy of the data it processes.
+
+**5. Limitation of Liability**
+
+5.1. TO THE MAXIMUM EXTENT PERMITTED BY LAW, IN NO EVENT SHALL LICENSOR BE LIABLE FOR ANY INDIRECT, SPECIAL, INCIDENTAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES (INCLUDING, BUT NOT LIMITED TO, DAMAGES FOR LOSS OF PROFITS, LOSS OF DATA, OR BUSINESS INTERRUPTION) ARISING OUT OF OR IN CONNECTION WITH THIS AGREEMENT OR THE USE OR INABILITY TO USE THE SOFTWARE, HOWEVER CAUSED AND UNDER ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, TORT, OR OTHERWISE, EVEN IF LICENSOR HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
+
+5.2. LICENSOR'S TOTAL LIABILITY UNDER THIS AGREEMENT FOR ANY AND ALL CLAIMS SHALL NOT EXCEED THE TOTAL AMOUNT OF LICENSE FEES PAID BY LICENSEE TO LICENSOR FOR THE SOFTWARE.
+
+**6. Disclaimer of Warranty**
+
+6.1. THE SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. LICENSOR DISCLAIMS ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+
+**7. Term and Termination**
+
+7.1. This Agreement shall commence upon Licensee's acceptance and shall continue in perpetuity unless terminated earlier as provided herein.
+
+7.2. Either party may terminate this Agreement upon thirty (30) days written notice if the other party is in material breach of any term of this Agreement and fails to cure such breach within the notice period.
+
+7.3. Upon termination, Licensee shall immediately cease all use of the Software and destroy all copies in its possession or control.
+
+**8. Governing Law**
+
+8.1. This Agreement shall be governed by and construed in accordance with the laws of Germany, without regard to its conflict of laws principles. The exclusive jurisdiction and venue for any legal proceedings arising out of this Agreement shall be the courts located in [Your City], Germany.
+
+**9. Entire Agreement**
+
+9.1. This Agreement constitutes the entire agreement between the parties concerning the subject matter hereof and supersedes all prior or contemporaneous agreements, understandings, and communications, whether written or oral.
