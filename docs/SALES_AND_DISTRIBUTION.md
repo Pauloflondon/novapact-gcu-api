@@ -10,7 +10,7 @@ Basierend auf der durchgeführten Marktanalyse und Preissensitivitätsstudie wer
 | :--- | :--- | :--- | :--- |
 | **Developer** | €499 | Einzelne Entwickler, kleine Teams, Startups | Voller Funktionsumfang für Evaluierung und kleine Projekte |
 | **Business** | €1.499 | Kleine und mittlere Unternehmen (KMU) | Voller Funktionsumfang, für den Einsatz in Produktionsumgebungen |
-| **Enterprise** | Auf Anfrage | Große Unternehmen, regulierte Branchen | Voller Funktionsumfang, inkl. optionalem Support-Vertrag |
+| **Enterprise** | Auf Anfrage | Große Unternehmen, regulierte Branchen | Voller Funktionsumfang |
 
 Diese Preisstruktur positioniert die GCU API als eine extrem kosteneffiziente Alternative zu den teuren, abonnementbasierten Enterprise-Lösungen der Konkurrenz.
 
@@ -42,7 +42,7 @@ Das Produkt wird als **"As-Is"-Lizenz** verkauft. Dies bedeutet:
 - Der Verkäufer (NovaPact) hat **keine Verpflichtung**, kostenlosen Support, Updates oder Wartung zu leisten.
 - Dies minimiert den laufenden Aufwand und die rechtlichen Verpflichtungen für den Verkäufer erheblich.
 
-Ein optionaler, kostenpflichtiger Support-Vertrag kann für Enterprise-Kunden individuell ausgehandelt werden.
+
 
 ## 4. Marketing und Positionierung
 

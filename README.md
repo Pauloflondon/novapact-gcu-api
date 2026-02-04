@@ -49,7 +49,7 @@ The NovaPact GCU API is available for **commercial licensing**. This is a propri
 | **Business** | €1,499 | Small and medium-sized enterprises (SMEs) |
 | **Enterprise** | Contact us | Large enterprises, regulated industries |
 
-**License Model:** Perpetual, "as-is" license without ongoing support obligations. Optional support contracts available for Enterprise customers.
+**License Model:** Perpetual, "as-is" license without ongoing support obligations. 
 
 **Distribution:** Available via [Gumroad](https://gumroad.com) and direct purchase.
 
