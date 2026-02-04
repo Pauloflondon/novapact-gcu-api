@@ -36,3 +36,27 @@ Typical use cases include:
 ---
 
 ## 🏗 Architecture
+
+## 📊 Business & Market Analysis
+
+Beyond its technical capabilities, the NovaPact GCU API is supported by a comprehensive suite of business, market, and competitive analyses that underscore its strategic value and commercial readiness.
+
+These documents provide a 360-degree view of the product, from its market positioning to its financial potential.
+
+### Key Documents & Visualizations
+
+- **[Wettbewerbsanalyse](docs/analysis/wettbewerbsanalyse_novapact_gcu.md)**: A deep dive into the competitive landscape, positioning the GCU against 6 key competitors and highlighting its unique selling propositions.
+- **[Markt- und Einsatzbericht](docs/market-research/markt_und_einsatzbericht_gcu.md)**: Detailed analysis of target markets, use cases, and a product valuation ranging from **€1.7M to €3.5M**.
+- **[Marketingplan Phase 1](docs/market-research/marketingplan_phase1.md)**: A complete go-to-market strategy, including pricing tiers and a Gumroad integration plan.
+
+#### Visual Insights
+
+| Marktpositionierung | Preisvergleich | Feature-Matrix |
+| :---: | :---: | :---: |
+| ![Market Positioning](docs/visualizations/market_positioning.png) | ![Price Comparison](docs/visualizations/price_comparison.png) | ![Feature Matrix](docs/visualizations/competitive_matrix.png) |
+
+These analyses demonstrate that the NovaPact GCU API is not just a technical tool, but a strategically positioned, market-ready product poised for significant growth in the burgeoning AI Governance sector.
+
+---
+
+*This repository and its accompanying analyses were prepared by Manus AI.*
